@@ -8,6 +8,10 @@ request(url, (error, response, html) => {
     if (!error && response.statusCode == 200) {
 
         const $ = cheerio.load(html);
+        // $('#subcatpromo').find('img').each((i, el) => {
+        //     let subcatId = $(el).attr('id');
+        //     console.log(subcatId);
+        // });
         let promotion = []
         $('#promolain').find('a').each((i, el) => {
             const promoDetailUrl = $(el).attr('href');
@@ -27,7 +31,7 @@ request(url, (error, response, html) => {
             if (err) throw err;
             console.log('Data written to file');
         })
-        console.log(promotion);
+        // console.log(subcatpromo);
 
         console.log('Scraping Done...');
     }
