@@ -24,7 +24,6 @@ function getSubcatPromo(urlToScrap) {
                 while ((regresult = reg.exec(text)) != null) {
                     if (/product=0&subcat=/.test(regresult[1])) {
                         subcatUrl.push(url + regresult[1]);
-
                     }
                 }
                 resolve({ subcatPromoId, subcatUrl });
@@ -33,8 +32,39 @@ function getSubcatPromo(urlToScrap) {
     })
 }
 
+function getNumberOfPage(urlToGetPage) {
+    return new Promise((resolve) => {
+        request(urlToGetPage, (error, response, html) => {
+            if (!error && response.statusCode == 200) {
+                const $ = cheerio.load(html);
 
-function scrapData(urlToScrap) {
+                let numberOfPage = [];
+                let maxPageTitle = $('.tablepaging').find('a').last().attr('title');
+                if (maxPageTitle && maxPageTitle.split(' ').length == 4) {
+                    let maxPage = parseInt(maxPageTitle.split(' ')[3], 10);
+                    for (let i = 1; i <= maxPage; i++) {
+                        numberOfPage.push(i);
+                    }
+                }
+                resolve(numberOfPage);
+            }
+        });
+    });
+}
+
+function getPageUrl(url, numberOfPage) {
+    return new Promise((resolve) => {
+        let pageUrl = []
+        if (numberOfPage.length > 0) {
+            for (let i = 0; i < numberOfPage.length; i++) {
+                pageUrl.push(url + '&page=' + numberOfPage[i])
+            }
+        }
+        resolve(pageUrl);
+    })
+}
+
+let getscrapData = async (urlToScrap) => {
     return new Promise((resolve) => {
         request(urlToScrap, (error, response, html) => {
             if (!error && response.statusCode == 200) {
@@ -55,6 +85,8 @@ function scrapData(urlToScrap) {
                     }
                     promotion.push(promo);
                 });
+
+
                 console.log('Scraping ' + urlToScrap + ' Done...');
                 // allpromo[urlToScrap] = promotion
                 resolve(promotion);
@@ -65,13 +97,19 @@ function scrapData(urlToScrap) {
     });
 }
 
+
 let fn = async (url) => {
-    let resultScrap = await scrapData(url);
-    // console.log(url);
-    // console.log(resultScrap);
-    return {
-        [url]: resultScrap
-    }
+    let numberOfPage = await getNumberOfPage(url);
+    console.log('numberOfPage.length', numberOfPage.length);
+
+    let pageUrl = await getPageUrl(url, numberOfPage);
+    let actions = pageUrl.map(getscrapData);
+    let results = Promise.all(actions);
+    results.then(resultData => {
+        return {
+            [url]: resultData
+        }
+    })
 
 }
 
