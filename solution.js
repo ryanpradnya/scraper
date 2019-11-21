@@ -3,7 +3,6 @@ const request = require('request');
 const fs = require('fs');
 
 const url = 'https://www.bankmega.com/promolainnya.php';
-let resultScrap = {};
 
 function getSubcatPromo(urlToScrap) {
     return new Promise((resolve) => {
@@ -11,11 +10,11 @@ function getSubcatPromo(urlToScrap) {
             if (!error && response.statusCode == 200) {
                 const $ = cheerio.load(html);
 
-                let subcatPromoId = [];
+                let subcatPromoTitle = [];
                 let subcatUrl = [];
                 $('#subcatpromo').find('img').each((i, el) => {
-                    let subcatId = $(el).attr('id');
-                    subcatPromoId.push(subcatId);
+                    let subcatTitle = $(el).attr('title');
+                    subcatPromoTitle.push(subcatTitle);
                 });
 
                 let text = $('#contentpromolain2').find('script').html()
@@ -26,7 +25,7 @@ function getSubcatPromo(urlToScrap) {
                         subcatUrl.push(url + regresult[1]);
                     }
                 }
-                resolve({ subcatPromoId, subcatUrl });
+                resolve({ subcatPromoTitle, subcatUrl });
             }
         })
     })
@@ -45,6 +44,9 @@ function getNumberOfPage(urlToGetPage) {
                     for (let i = 1; i <= maxPage; i++) {
                         numberOfPage.push(i);
                     }
+                } else if (maxPageTitle && maxPageTitle.split(' ').length == 2) {
+                    numberOfPage.push(1);
+
                 }
                 resolve(numberOfPage);
             }
@@ -72,7 +74,6 @@ let getscrapData = async (urlToScrap) => {
                 const $ = cheerio.load(html);
 
                 let promotion = [];
-                let allpromo = {};
                 $('#promolain').find('a').each((i, el) => {
                     const promoDetailUrl = $(el).attr('href');
                     const title = $(el).find('img').attr('title');
@@ -88,7 +89,6 @@ let getscrapData = async (urlToScrap) => {
 
 
                 console.log('Scraping ' + urlToScrap + ' Done...');
-                // allpromo[urlToScrap] = promotion
                 resolve(promotion);
 
             }
@@ -98,38 +98,36 @@ let getscrapData = async (urlToScrap) => {
 }
 
 
-let fn = async (url) => {
+let getDataEveryPage = async (url) => {
     let numberOfPage = await getNumberOfPage(url);
-    console.log('numberOfPage.length', numberOfPage.length);
+    // console.log('numberOfPage.length', numberOfPage.length + ' ' + url);
 
     let pageUrl = await getPageUrl(url, numberOfPage);
     let actions = pageUrl.map(getscrapData);
-    let results = Promise.all(actions);
-    results.then(resultData => {
-        return {
-            [url]: resultData
-        }
-    })
+    let results = await Promise.all(actions);
+
+    return Array.prototype.concat.apply([], results);
 
 }
 
 async function setSubcatPromo(url) {
     let subcatPromo = await getSubcatPromo(url);
-    console.log('subcatPromo: ', subcatPromo);
-    let actions = subcatPromo.subcatUrl.map(fn);
+    let actions = subcatPromo.subcatUrl.map(getDataEveryPage);
 
     let results = Promise.all(actions);
+    let scrapData = {};
 
     results.then(resultData => {
+        for (let i = 0; i < subcatPromo.subcatPromoTitle.length; i++) {
+            scrapData[subcatPromo.subcatPromoTitle[i]] = resultData[i];
+        }
 
-        // console.log(resultData)
-        let data = JSON.stringify(resultData, null, 2);
+        let data = JSON.stringify(scrapData, null, 2);
         fs.writeFile('solution.json', data, (err) => {
             if (err) throw err;
             console.log('Data written to file');
         })
-    }
-    );
+    });
 }
 
 
