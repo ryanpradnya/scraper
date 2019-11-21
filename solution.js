@@ -4,19 +4,23 @@ const fs = require('fs');
 
 const url = 'https://www.bankmega.com/promolainnya.php';
 
-function getSubcatPromo(urlToScrap) {
+// Function to get sub category promo title and url
+function getSubcatPromo(urlToScrape) {
     return new Promise((resolve) => {
-        request(urlToScrap, (error, response, html) => {
+        request(urlToScrape, (error, response, html) => {
             if (!error && response.statusCode == 200) {
                 const $ = cheerio.load(html);
 
                 let subcatPromoTitle = [];
                 let subcatUrl = [];
+
+                //Process to scrape sub category title
                 $('#subcatpromo').find('img').each((i, el) => {
                     let subcatTitle = $(el).attr('title');
                     subcatPromoTitle.push(subcatTitle);
                 });
 
+                //Process to scrape sub category url
                 let text = $('#contentpromolain2').find('script').html()
                 let reg = /promolainnya.php(.*?)"/g;
                 let regresult;
@@ -31,6 +35,7 @@ function getSubcatPromo(urlToScrap) {
     })
 }
 
+// Function to get number of page in array form
 function getNumberOfPage(urlToGetPage) {
     return new Promise((resolve) => {
         request(urlToGetPage, (error, response, html) => {
@@ -54,6 +59,7 @@ function getNumberOfPage(urlToGetPage) {
     });
 }
 
+// Function to get page url and store to array
 function getPageUrl(url, numberOfPage) {
     return new Promise((resolve) => {
         let pageUrl = []
@@ -66,9 +72,10 @@ function getPageUrl(url, numberOfPage) {
     })
 }
 
-let getscrapData = async (urlToScrap) => {
+// Function to get all promotion in page and store to array
+let getScrapeData = async (urlToScrape) => {
     return new Promise((resolve) => {
-        request(urlToScrap, (error, response, html) => {
+        request(urlToScrape, (error, response, html) => {
             if (!error && response.statusCode == 200) {
 
                 const $ = cheerio.load(html);
@@ -88,7 +95,7 @@ let getscrapData = async (urlToScrap) => {
                 });
 
 
-                console.log('Scraping ' + urlToScrap + ' Done...');
+                console.log('Scraping ' + urlToScrape + ' Done...');
                 resolve(promotion);
 
             }
@@ -97,19 +104,21 @@ let getscrapData = async (urlToScrap) => {
     });
 }
 
-
+// Function to get all promotion in one category and store to array
 let getDataEveryPage = async (url) => {
     let numberOfPage = await getNumberOfPage(url);
     // console.log('numberOfPage.length', numberOfPage.length + ' ' + url);
 
     let pageUrl = await getPageUrl(url, numberOfPage);
-    let actions = pageUrl.map(getscrapData);
+    let actions = pageUrl.map(getScrapeData);
     let results = await Promise.all(actions);
 
+    //Turn multiple array to single array and return it
     return Array.prototype.concat.apply([], results);
 
 }
 
+// Main function
 async function setSubcatPromo(url) {
     let subcatPromo = await getSubcatPromo(url);
     let actions = subcatPromo.subcatUrl.map(getDataEveryPage);
@@ -118,10 +127,13 @@ async function setSubcatPromo(url) {
     let scrapData = {};
 
     results.then(resultData => {
+
+        // Process to store in object using title as key and result data as value
         for (let i = 0; i < subcatPromo.subcatPromoTitle.length; i++) {
             scrapData[subcatPromo.subcatPromoTitle[i]] = resultData[i];
         }
 
+        // Process write to json file
         let data = JSON.stringify(scrapData, null, 2);
         fs.writeFile('solution.json', data, (err) => {
             if (err) throw err;
